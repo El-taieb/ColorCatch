@@ -7,11 +7,11 @@ EditorBuildSettings:
   m_Scenes:
   - enabled: 1
     path: Assets/Scenes/StartScene.unity
-    guid: 22b8abb539246264284bb391803cac58
+    guid: b085602b0a1e1fe4fbe43fa310c5a886
   - enabled: 1
     path: Assets/Scenes/ColorCatch-Game.unity
     guid: 20b0e4a8b7c61d34a83c8e5659141855
-  - enabled: 1
+  - enabled: 0
     path: Assets/Scenes/SampleScene.unity
     guid: 99c9720ab356a0642a771bea13969a05
   m_configObjects: {}

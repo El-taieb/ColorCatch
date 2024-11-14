@@ -1,6 +1,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.SceneManagement;  // Import this to use SceneManager
 
 public class GamePlay : MonoBehaviour
 {
@@ -15,7 +16,7 @@ public class GamePlay : MonoBehaviour
 
     void Start()
     {
-        CreatePickup(20);  // Create 5 pickups and 5 dontpicks
+        CreatePickup(20);  // Create 20 pickups and 20 dontpicks
     }
 
     void CreatePickup(int pickupNum)
@@ -66,5 +67,17 @@ public class GamePlay : MonoBehaviour
             }
         }
         return false;
+    }
+
+    // Function to restart the game by reloading the current scene
+    public void RestartGame()
+    {
+        SceneManager.LoadScene(SceneManager.GetActiveScene().name);
+    }
+
+    // Function to exit the game
+    public void ExitGame()
+    {
+        Application.Quit();
     }
 }

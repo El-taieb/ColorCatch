@@ -3,7 +3,13 @@ guid: 0d0e8b3f1a6588042960fcf4ff8e8338
 MonoImporter:
   externalObjects: {}
   serializedVersion: 2
-  defaultReferences: []
+  defaultReferences:
+  - countText: {instanceID: 0}
+  - winTextObject: {instanceID: 0}
+  - loseTextObject: {instanceID: 0}
+  - timeText: {instanceID: 0}
+  - pickUpSound: {instanceID: 0}
+  - dontPickUpSound: {instanceID: 0}
   executionOrder: 0
   icon: {instanceID: 0}
   userData: 

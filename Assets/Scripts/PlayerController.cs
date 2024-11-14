@@ -2,6 +2,7 @@ using System.Collections;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using TMPro;
+using UnityEngine.SceneManagement;
 
 public class PlayerController : MonoBehaviour
 {
@@ -9,61 +10,59 @@ public class PlayerController : MonoBehaviour
 
     public TextMeshProUGUI countText;
     public GameObject winTextObject;
-    public GameObject loseTextObject;  // Reference for the lose text
-    public TextMeshProUGUI timeText;   // Reference to display the timer
+    public GameObject loseTextObject;
+    public TextMeshProUGUI timeText;
 
-    private int count; // To track the score
-    private int pickupsCollected; // To track the number of pickups collected
-    private int totalPickups = 20; // The total number of pickups in the game
+    private int count;
+    private int pickupsCollected;
+    private int totalPickups = 20;
 
     private float movementX;
     private float movementY;
 
-    public float speed = 0;
+    public float speed = 5f;  // Initial speed; you can change this directly from Unity Inspector
+    private float lastValidSpeed;  // To store the last valid speed value (before the speed increase)
+    private float timeRemaining = 90f;
+    private bool isGameOver = false;
 
-    private float timeRemaining = 90f; // Set the initial time to 90 seconds (1:30 min)
-    private bool isGameOver = false;  // To track if the game is over
+    public GameObject restartButton;  // Reference to Restart button
+    public GameObject exitButton;     // Reference to Exit button
 
-    private AudioSource playerAudioSource; // Reference to player's AudioSource
-    public AudioClip pickUpSound;  // Sound for pick up
-    public AudioClip dontPickUpSound;  // Sound for don't pick up
+    private AudioSource playerAudioSource;
+    public AudioClip pickUpSound;
+    public AudioClip dontPickUpSound;
 
-    private AudioSource mainCameraAudioSource;  // Reference to main camera's AudioSource
+    private AudioSource mainCameraAudioSource;
+
+    private bool speedIncreased = false;  // To track if speed was increased
 
     void Start()
     {
         rb = GetComponent<Rigidbody>();
         count = 0;
-        pickupsCollected = 0;  // Initialize pickups collected to 0
+        pickupsCollected = 0;
 
+        lastValidSpeed = speed;  // Set the last valid speed to initial speed
         SetCountText();
         winTextObject.SetActive(false);
-        loseTextObject.SetActive(false);  // Hide lose text initially
+        loseTextObject.SetActive(false);
+        restartButton.SetActive(false);
+        exitButton.SetActive(false);
 
-        // Start the timer countdown
         StartCoroutine(TimerCountdown());
 
-        // Get the AudioSource component attached to the player
         playerAudioSource = GetComponent<AudioSource>();
-
         if (playerAudioSource == null)
-        {
-            playerAudioSource = gameObject.AddComponent<AudioSource>(); // Add AudioSource if not present
-        }
+            playerAudioSource = gameObject.AddComponent<AudioSource>();
 
-        // Get the AudioSource component attached to the main camera
         mainCameraAudioSource = Camera.main.GetComponent<AudioSource>();
-
         if (mainCameraAudioSource == null)
-        {
-            mainCameraAudioSource = Camera.main.gameObject.AddComponent<AudioSource>(); // Add AudioSource if not present on main camera
-        }
+            mainCameraAudioSource = Camera.main.gameObject.AddComponent<AudioSource>();
     }
 
     void OnMove(InputValue movementValue)
     {
         Vector2 movementVector = movementValue.Get<Vector2>();
-
         movementX = movementVector.x;
         movementY = movementVector.y;
     }
@@ -72,23 +71,19 @@ public class PlayerController : MonoBehaviour
     {
         countText.text = "Count: " + count.ToString();
 
-        // Check win or lose only if all pickups are collected
         if (pickupsCollected == totalPickups && !isGameOver)
         {
-            isGameOver = true; // Stop any further updates
-            if (count >= 15)
-            {
-                winTextObject.SetActive(true);
-                loseTextObject.SetActive(false);
-            }
-            else
-            {
-                loseTextObject.SetActive(true);
-                winTextObject.SetActive(false);
-            }
-            gameObject.SetActive(false);  // Make player disappear after checking result
+            isGameOver = true;
+            winTextObject.SetActive(count >= 15);
+            loseTextObject.SetActive(count < 15);
 
-            StopMainCameraAudio(); // Stop the main camera audio when game is over
+            restartButton.SetActive(true);
+            exitButton.SetActive(true);
+
+            // Deactivate the player GameObject to make it disappear
+            gameObject.SetActive(false);
+
+            StopMainCameraAudio();
         }
     }
 
@@ -103,41 +98,53 @@ public class PlayerController : MonoBehaviour
 
     private void OnTriggerEnter(Collider other)
     {
-        if (isGameOver) return;  // Ignore if the game is over
+        if (isGameOver) return;
 
         if (other.gameObject.CompareTag("PickUp"))
         {
-            PlaySound(pickUpSound);  // Play the pick-up sound
-            other.gameObject.SetActive(false);  // Disable the PickUp object
-            count = count + 1;  // Increase count by 1 for PickUp
-            pickupsCollected++;  // Increase the number of pickups collected
-            SetCountText();  // Update the count display
+            PlaySound(pickUpSound);
+            other.gameObject.SetActive(false);
+            count++;
+            pickupsCollected++;
+
+            // Check if the player has collected 2 correct pickups
+            if (pickupsCollected % 2 == 0)
+            {
+                // If speed was not already increased, increase it
+                if (!speedIncreased)
+                {
+                    lastValidSpeed = speed;  // Save the current speed as the last valid speed
+                    IncreasePlayerSpeed();
+                    speedIncreased = true;  // Mark that speed has been increased
+                }
+            }
+
+            SetCountText();
         }
         else if (other.gameObject.CompareTag("DontPickUp"))
         {
-            PlaySound(dontPickUpSound);  // Play the dont-pick-up sound
-            other.gameObject.SetActive(false);  // Disable the DontPickup object
-            count = count - 1;  // Decrease count by 1 for DontPickup
-            pickupsCollected++;  // Increase the number of pickups collected
-            SetCountText();  // Update the count display
+            PlaySound(dontPickUpSound);
+            other.gameObject.SetActive(false);
+            count--;
+            pickupsCollected++;
+
+            // Reset speed to the last valid speed if player collects a wrong pickup after speed increase
+            if (speedIncreased)
+            {
+                ResetPlayerSpeedToLastValid();
+                speedIncreased = false;  // Reset the flag
+            }
+
+            SetCountText();
         }
     }
 
-    // Function to play sound on the PickUp or DontPickUp objects
     private void PlaySound(AudioClip clip)
     {
         if (clip != null)
-        {
-            Debug.Log("Playing sound!");
-            playerAudioSource.PlayOneShot(clip);  // Play the assigned audio clip
-        }
-        else
-        {
-            Debug.Log("No AudioClip assigned to PlaySound!");
-        }
+            playerAudioSource.PlayOneShot(clip);
     }
 
-    // Timer countdown function
     private IEnumerator TimerCountdown()
     {
         while (timeRemaining > 0 && !isGameOver)
@@ -151,22 +158,44 @@ public class PlayerController : MonoBehaviour
 
         if (!isGameOver)
         {
-            // Timer has run out, trigger loss
             isGameOver = true;
-            loseTextObject.SetActive(true);  // Show lose text
-            winTextObject.SetActive(false);  // Hide win text
-            gameObject.SetActive(false);  // Make player disappear
-
-            StopMainCameraAudio(); // Stop the main camera audio when game is over
+            loseTextObject.SetActive(true);
+            restartButton.SetActive(true);
+            exitButton.SetActive(true);
+            gameObject.SetActive(false);
+            StopMainCameraAudio();
         }
     }
 
-    // Function to stop main camera audio when the game ends
     private void StopMainCameraAudio()
     {
         if (mainCameraAudioSource != null)
-        {
-            mainCameraAudioSource.Stop();  // Stop the audio playing on the main camera
-        }
+            mainCameraAudioSource.Stop();
+    }
+
+    // Function to increase player speed
+    private void IncreasePlayerSpeed()
+    {
+        speed += 2f;  // Increase speed by 2; adjust this value as needed
+        Debug.Log("Player Speed Increased! Current Speed: " + speed);
+    }
+
+    // Function to reset player speed to last valid speed
+    private void ResetPlayerSpeedToLastValid()
+    {
+        speed = lastValidSpeed;  // Revert speed to the last valid speed
+        Debug.Log("Player Speed Reset to Last Valid Speed! Current Speed: " + speed);
+    }
+
+    public void RestartGame()
+    {
+        Debug.Log("Restart button clicked"); // For testing
+        SceneManager.LoadScene(SceneManager.GetActiveScene().name);
+    }
+
+    public void ExitGame()
+    {
+        Debug.Log("Exit button clicked"); // For testing
+        Application.Quit();
     }
 }
